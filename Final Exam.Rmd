@@ -1,6 +1,79 @@
 ---
 title: "Final Exam"
 author: "Jack Halverson"
-date: "12/13/2021"
-output: html_document
+date: "12/15/2021"
+output: 
+  html_document:
+    theme: readable
+    toc: true
+    toc_depth: 3
+    toc_float: true
 ---
+
+# Libraries and Data
+
+Load libraries and data
+```{r}
+library(tidyverse)
+library(interactions)
+
+MainStreet_data <- read_csv("finalexam_sampledata.csv")
+```
+
+# Question 1
+*What was the average change in sales for Main Street businesses? Did sales increase or decrease, on average? How confident are you about that?*
+```{r}
+t.test(MainStreet_data$pct_sales_chng)
+```
+
+
+# Question 2
+*Did the cost of parking change more for some types of businesses than for others? How confident are you about those differences?*
+
+Identify most common store type:
+```{r}
+MainStreet_data %>%
+  group_by(type) %>%
+  summarise(number = n()) %>%
+  mutate(percent = round(100*number/sum(number))) %>%
+  arrange(desc(number))
+```
+
+Compare store types to ____:
+```{r}
+MainStreet_data <- MainStreet_data %>%
+  mutate(type = as.factor(type)) %>%
+  mutate(type = relevel(type, "Clothing"))
+```
+
+Bivariate regression comparing other store types to ___:
+```{r}
+parking_cost_by_type <- lm(parking_cost_change ~ type, data = MainStreet_data)
+
+summary(parking_cost_by_type)
+```
+
+
+# Question 3
+*Not counting any kind of effect of the changes to parking and cycling have had, what kind of effect did it have on businesses if the closest transit stop got closer or further away?*
+
+Run initial multivariate regression model
+```{r}
+Initial_Model <- lm(pct_sales_chng ~ transit_dist + parking_cost_change + lost_parking + bike_chng, data = MainStreet_data)
+
+summary(Initial_Model)
+```
+
+
+# Question 4
+*Was the effect of transit on sales different for some types of businesses than for others? What was the difference, if any?*
+
+Run interaction multivariate regression model
+```{r}
+Interaction_Model <- lm(pct_sales_chng ~ type + transit_dist + parking_cost_change + lost_parking + bike_chng + type:transit_dist, data = MainStreet_data)
+```
+
+Visualize interaction model
+```{r}
+interact_plot(model_2, pred = transit_dist, interval = TRUE, modx = type)
+```
