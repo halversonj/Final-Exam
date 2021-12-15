@@ -75,5 +75,5 @@ Interaction_Model <- lm(pct_sales_chng ~ type + transit_dist + parking_cost_chan
 
 Visualize interaction model
 ```{r}
-interact_plot(model_2, pred = transit_dist, interval = TRUE, modx = type)
+interact_plot(Interaction_Model, pred = transit_dist, interval = TRUE, modx = type)
 ```
