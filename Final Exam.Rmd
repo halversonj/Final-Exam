@@ -10,24 +10,27 @@ output:
     toc_float: true
 ---
 
-# Libraries and Data
+## Libraries and Data
 
 Load libraries and data
-```{r}
+```{r, message = FALSE, warning = FALSE}
 library(tidyverse)
 library(interactions)
+library(jtools)
 
-MainStreet_data <- read_csv("finalexam_sampledata.csv")
+MainStreet_data <- read_csv("exam_data.csv")
 ```
 
-# Question 1
+## Question 1
 *What was the average change in sales for Main Street businesses? Did sales increase or decrease, on average? How confident are you about that?*
+
+Run a t-test on pct_sales_chng:
 ```{r}
 t.test(MainStreet_data$pct_sales_chng)
 ```
+The average change in sales for Main Street businesses was an increase of 3.3%. The P-value is less than 0.001 and the confidence interval is between 0.0296 and 0.0368 so I'm 99% confident that sales increased.
 
-
-# Question 2
+## Question 2
 *Did the cost of parking change more for some types of businesses than for others? How confident are you about those differences?*
 
 Identify most common store type:
@@ -35,45 +38,112 @@ Identify most common store type:
 MainStreet_data %>%
   group_by(type) %>%
   summarise(number = n()) %>%
-  mutate(percent = round(100*number/sum(number))) %>%
   arrange(desc(number))
 ```
 
-Compare store types to ____:
+Compare store types to Clothing Stores to interpret data more meaningfully:
 ```{r}
 MainStreet_data <- MainStreet_data %>%
   mutate(type = as.factor(type)) %>%
   mutate(type = relevel(type, "Clothing"))
 ```
 
-Bivariate regression comparing other store types to ___:
+Bivariate regression comparing other store types to Clothing Stores:
 ```{r}
 parking_cost_by_type <- lm(parking_cost_change ~ type, data = MainStreet_data)
 
 summary(parking_cost_by_type)
 ```
+This bivariate analysis uses clothing stores as the baseline because they are the most common type of store in the dataset.
+
+Compared to clothing stores, Drug Stores and Restaurants saw a greater increase in parking costs with a 95% and 99% confidence level, respectively. Furniture Stores, Gas Stations, and Grocery stores saw less of an increase in parking costs compared to Clothing Stores with a greater than 99% confidence level. Book Stores were not statistically significantly different.
+
+For Clothing Stores, parking costs increased by about 10.2% with a greater than 99% confidence interval.
+
+For Book Stores, parking costs increased by about 1 percentage point more than Clothing Stores, but this result is not statistically significant.
+
+For Drugstores, parking costs increased by about 1.5 percentage points more than Clothing Stores, with a confidence interval of 95%.
+
+For Furniture Stores, parking costs increased by about 9.5 percentage points less than Clothing Stores, with a greater than 99% confidence interval.
+
+For Gas Stations, parking costs increased by about 9.5 percentage points less than Clothing Stores, with a greater than 99% confidence interval.
+
+For Grocery Stores, parking costs increased by about 4.4 percentage points less than Clothing Stores, with a greater than 99% confidence interval.
+
+For Restaurants, parking costs increased by about 6 percentage points more than Clothing Stores, with a greater than 99% confidence interval.
 
 
-# Question 3
+## Question 3
 *Not counting any kind of effect of the changes to parking and cycling have had, what kind of effect did it have on businesses if the closest transit stop got closer or further away?*
 
-Run initial multivariate regression model
+Run initial multivariate regression model:
 ```{r}
 Initial_Model <- lm(pct_sales_chng ~ transit_dist + parking_cost_change + lost_parking + bike_chng, data = MainStreet_data)
 
-summary(Initial_Model)
+coeff_names <- c("Constant" = "(Intercept)",
+                 "Transit Distance" = "transit_dist",
+                 "Parking Cost Change" = "parking_cost_change",
+                 "Lost Parking" = "lost_parking",
+                 "Bike Change" = "bike_chng")
+
+export_summs(Initial_Model,
+             error_format = "(p = {p.value})",
+             error_pos = "same",
+             model.names = c("Multivariate Regression"),
+             coefs = coeff_names)
 ```
+Looking at the coefficient for Transit Distance, as transit distance increases by 1 mile, sales decreased by 21 percentage points. This is statistically significant with greater than 99% confidence.
 
-
-# Question 4
+## Question 4
 *Was the effect of transit on sales different for some types of businesses than for others? What was the difference, if any?*
 
-Run interaction multivariate regression model
+Run interaction multivariate regression model, keeping parking and biking constant to better isolate the interaction:
 ```{r}
 Interaction_Model <- lm(pct_sales_chng ~ type + transit_dist + parking_cost_change + lost_parking + bike_chng + type:transit_dist, data = MainStreet_data)
+
+coeff_names_interaction <- c("Constant (Clothing Stores)" = "(Intercept)",
+                 "Book Stores" = "typeBooks",
+                 "Drugstores" = "typeDrugstore",
+                 "Furniture Stores" = "typeFurniture",
+                 "Gas Stations" = "typeGas station",
+                 "Grocery Stores" = "typeGrocery",
+                 "Restaurants" = "typeRestaurant",
+                 "Transit Distance" = "transit_dist",
+                 "Parking Cost Change" = "parking_cost_change",
+                 "Lost Parking" = "lost_parking",
+                 "Bike Change" = "bike_chng",
+                 "Book Stores x Transit" = "typeBooks:transit_dist",
+                 "Drugstores x Transit" = "typeDrugstore:transit_dist",
+                 "Furniture Stores x Transit" = "typeFurniture:transit_dist",
+                 "Gas Stations x Transit" = "typeGas station:transit_dist",
+                 "Grocery Stores x Transit" = "typeGrocery:transit_dist",
+                 "Restaurants x Transit" = "typeRestaurant:transit_dist")
+
+export_summs(Interaction_Model,
+             error_format = "(p = {p.value})",
+             error_pos = "same",
+             model.names = c("Interaction Regression"),
+             coefs = coeff_names_interaction)
 ```
 
-Visualize interaction model
 ```{r}
-interact_plot(Interaction_Model, pred = transit_dist, interval = TRUE, modx = type)
+interact_plot(Interaction_Model, pred = transit_dist, interval = TRUE, modx=type, x.label = "Transit Distance (miles)", y.label = "Percent Sales Change", legend.main = "Store Type")
 ```
+
+Clothing Stores: as distance from transit increases by 1 mile, there's a 27 percentage point decrease in sales.
+
+Compared to Clothing Stores, Book Stores and Drugstores sales decrease more as distance from transit increases by 1 mile, but Drugstores are not statistically significant. 
+
+Compared to Clothing Stores, Furniture Stores, Gas Stations, Grocery Stores, and Restaurant sales decrease less (and increase in the case of Furniture Stores and Gas Stations) as distance from transit increases by 1 mile, but Restaurants are not statistically significant.
+
+Book Stores: as distance from transit increases by 1 mile, sales decrease by 21 percentage points more than Clothing Stores. This means that sales decrease for Book Stores by 48 percentage points, with statistical significance greater than 99%.
+
+Drugstores: as distance from transit increases by 1 mile, sales decrease by 1 percentage point more than Clothing Stores. This means that sales decrease for Drugstores by 28 percentage points, but without statistical significance.
+
+Furniture Stores: as distance from transit increases by 1 mile, sales decrease by 27 percentage points less than Clothing Stores. This means that sales increase for Furniture Stores by less than 1 percentage point, with statistical significance greater than 99%.
+
+Gas Stations: as distance from transit increases by 1 mile, sales decrease by 29 percentage points less than Clothing Stores. This means that sales increase for Gas Stations by about 2 percentage points, with statistical significance of 99%.
+
+Grocery Stores: as distance from transit increases by 1 mile, sales decrease by 26 percentage points less than Clothing Stores. This means that sales decrease for Grocery Stores by about 1 percentage point, with statistical significance greater than 99%.
+
+Restaurants: as distance from transit increases by 1 mile, sales decrease by 4 percentage points less that Clothing Stores. This means that sales decrease for Restaurants by about 23 percentage points, with no statistical significance.
